@@ -49,6 +49,20 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               </div>
             )}
 
+            {/* 用户上传的日志文件标签 */}
+            {message.logFiles && message.logFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {message.logFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-dark-700/60 border border-white/10 rounded-md px-2 py-1">
+                    <svg className="w-3 h-3 text-accent-400 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                    </svg>
+                    <span className="text-xs text-dark-300">{file.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Markdown 渲染内容 */}
             <div className={`markdown-body break-words whitespace-pre-wrap ${message.isStreaming ? 'typing-cursor' : ''}`}>
               {isUser ? (
@@ -84,3 +98,4 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     </div>
   );
 }
+

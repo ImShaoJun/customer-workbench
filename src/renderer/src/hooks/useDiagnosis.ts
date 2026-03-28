@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { DiagnosisState, ChatMessage } from '../types'
+import { DiagnosisState, ChatMessage, LogFile } from '../types'
 
 export const useDiagnosis = () => {
   const [state, setState] = useState<DiagnosisState>('IDLE')
@@ -8,8 +8,8 @@ export const useDiagnosis = () => {
   
   const abortControllerRef = useRef<AbortController | null>(null)
 
-  const sendDiagnosis = useCallback(async (text: string, images: string[] = []) => {
-    setState('DIAGNOSING')
+  const sendDiagnosis = useCallback(async (text: string, images: string[] = [], logFiles: LogFile[] = []) => {
+    setState('UPLOADING')
     setError('')
     
     // Add User Message
@@ -18,6 +18,7 @@ export const useDiagnosis = () => {
       role: 'user',
       content: text,
       images,
+      logFiles,
       timestamp: Date.now()
     }
     
@@ -35,13 +36,15 @@ export const useDiagnosis = () => {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    setState('DIAGNOSING')
+
     try {
       const response = await fetch('http://localhost:3213/diagnose', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ images, text }),
+        body: JSON.stringify({ images, text, logFiles }),
         signal: controller.signal
       })
 

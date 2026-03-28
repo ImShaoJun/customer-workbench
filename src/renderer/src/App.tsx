@@ -7,7 +7,7 @@ import { InputArea } from './components/InputArea'
 function App() {
   const [inputText, setInputText] = useState('')
   const { state, messages, error, sendDiagnosis, abortDiagnosis } = useDiagnosis()
-  const { images, handlePaste, handleDrop, handleFileSelect, removeImage, clearImages } = useImageUpload()
+  const { images, logFiles, handlePaste, handleDrop, handleFileSelect, removeImage, removeLogFile, clearAll } = useImageUpload()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Auto scroll to bottom
@@ -19,9 +19,9 @@ function App() {
   }, [messages])
 
   const handleSend = () => {
-    sendDiagnosis(inputText, images);
+    sendDiagnosis(inputText, images, logFiles);
     setInputText('');
-    clearImages();
+    clearAll();
   }
 
   return (
@@ -36,6 +36,9 @@ function App() {
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 glow-pulse" />
           <span className="text-sm font-medium text-dark-300">AI 诊断工作台</span>
+          {state === 'UPLOADING' && (
+            <span className="text-xs text-accent-400 ml-2 animate-pulse">文件处理中...</span>
+          )}
           {state === 'DIAGNOSING' && (
             <span className="text-xs text-primary-400 ml-2 animate-pulse">诊断中...</span>
           )}
@@ -81,13 +84,13 @@ function App() {
                   </div>
                   <h1 className="text-2xl font-bold gradient-text mb-2">大数据平台 AI 诊断</h1>
                   <p className="text-dark-400 text-sm max-w-md">
-                    直接在界面粘贴 (Ctrl+V) 报错截图，AI 将快速识别问题并生成排查方案。
+                    直接在界面粘贴 (Ctrl+V) 报错截图，或上传日志文件，AI 将快速识别问题并生成排查方案。
                   </p>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col animate-slide-up">
-                {messages.map((msg, i) => (
+                {messages.map((msg) => (
                   <MessageBubble key={msg.id} message={msg} />
                 ))}
                 
@@ -115,8 +118,10 @@ function App() {
         inputText={inputText}
         setInputText={setInputText}
         images={images}
+        logFiles={logFiles}
         removeImage={removeImage}
-        clearImages={clearImages}
+        removeLogFile={removeLogFile}
+        clearAll={clearAll}
         handleFileSelect={handleFileSelect}
         onSend={handleSend}
         onAbort={abortDiagnosis}

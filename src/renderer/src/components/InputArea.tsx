@@ -1,12 +1,14 @@
 import { useRef, useEffect } from 'react';
-import { DiagnosisState } from '../types';
+import { DiagnosisState, LogFile } from '../types';
 
 interface InputAreaProps {
   inputText: string;
   setInputText: (val: string) => void;
   images: string[];
+  logFiles: LogFile[];
   removeImage: (index: number) => void;
-  clearImages: () => void;
+  removeLogFile: (index: number) => void;
+  clearAll: () => void;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: () => void;
   onAbort: () => void;
@@ -17,8 +19,10 @@ export function InputArea({
   inputText,
   setInputText,
   images,
+  logFiles,
   removeImage,
-  clearImages,
+  removeLogFile,
+  clearAll,
   handleFileSelect,
   onSend,
   onAbort,
@@ -37,29 +41,46 @@ export function InputArea({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if ((inputText.trim() || images.length > 0) && state !== 'DIAGNOSING') {
+      if ((inputText.trim() || images.length > 0 || logFiles.length > 0) && state !== 'DIAGNOSING' && state !== 'UPLOADING') {
         onSend();
       }
     }
   };
 
-  const isSending = state === 'DIAGNOSING';
-  const canSend = (inputText.trim().length > 0 || images.length > 0) && !isSending;
+  const isSending = state === 'DIAGNOSING' || state === 'UPLOADING';
+  const canSend = (inputText.trim().length > 0 || images.length > 0 || logFiles.length > 0) && !isSending;
+  const hasAttachments = images.length > 0 || logFiles.length > 0;
 
   return (
     <div className="shrink-0 border-t border-white/5 bg-dark-900/50 backdrop-blur-sm px-6 py-4">
       <div className="max-w-3xl mx-auto">
         <div className="glass-card p-3 focus-within:border-primary-500/50 outline outline-1 outline-transparent transition-colors shadow-lg">
           
-          {/* 已上传图片预览区 */}
-          {images.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2 pb-2 border-b border-white/5">
+          {/* 附件预览区 (图片 + 日志文件) */}
+          {hasAttachments && (
+            <div className="flex flex-wrap gap-2 mb-2 pb-2 border-b border-white/5 items-start">
+              {/* 图片缩略图 */}
               {images.map((img, i) => (
-                <div key={i} className="relative group">
+                <div key={`img-${i}`} className="relative group">
                   <img src={img} alt="preview" className="h-16 w-16 object-cover rounded-lg border border-white/10" />
                   <button 
                     onClick={() => removeImage(i)}
                     className="absolute -top-1.5 -right-1.5 bg-dark-800 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity border border-white/10 hover:bg-red-500"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              ))}
+              {/* 日志文件标签 */}
+              {logFiles.map((file, i) => (
+                <div key={`log-${i}`} className="relative group flex items-center gap-1.5 bg-dark-800/80 border border-white/10 rounded-lg px-2.5 py-1.5 max-w-[160px]">
+                  <svg className="w-3.5 h-3.5 text-accent-400 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                  </svg>
+                  <span className="text-xs text-dark-300 truncate">{file.name}</span>
+                  <button 
+                    onClick={() => removeLogFile(i)}
+                    className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-dark-400 hover:text-red-400 shrink-0"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
@@ -85,11 +106,25 @@ export function InputArea({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
                 </svg>
-                上传图片
+                上传截图
                 <input 
                   type="file" 
                   multiple 
-                  accept="image/*" 
+                  accept="image/*"
+                  className="hidden" 
+                  onChange={handleFileSelect}
+                  disabled={isSending}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-dark-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                上传日志
+                <input 
+                  type="file" 
+                  multiple 
+                  accept=".txt,.log,.csv,.json,.xml,.yaml,.yml,.md,.conf,.cfg,.ini,.properties,.out,.err"
                   className="hidden" 
                   onChange={handleFileSelect}
                   disabled={isSending}
