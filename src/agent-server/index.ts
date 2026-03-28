@@ -8,8 +8,13 @@ const PORT = 3213;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// The exact prompt builder logic from previous agent.ts
-async function* buildPrompt(text: string, images: string[]) {
+interface LogFile {
+  name: string;
+  content: string;
+}
+
+// Build a multimodal prompt from text, images, and log file contents
+async function* buildPrompt(text: string, images: string[], logFiles: LogFile[]) {
   const imageBlocks = images.map((dataUrl: string) => {
     const matches = dataUrl.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/)
     if (!matches) {
@@ -25,9 +30,18 @@ async function* buildPrompt(text: string, images: string[]) {
     }
   });
 
+  // Build combined text: user description + log file contents
+  let combinedText = text || "请诊断此问题";
+  if (logFiles.length > 0) {
+    const logSection = logFiles.map(f =>
+      `--- 日志文件: ${f.name} ---\n${f.content}`
+    ).join('\n\n');
+    combinedText += `\n\n以下是附加的日志文件内容：\n\n${logSection}`;
+  }
+
   const textBlock = {
     type: "text" as const,
-    text: text || "请诊断此问题"
+    text: combinedText
   };
 
   yield {
@@ -45,7 +59,7 @@ const SYSTEM_PROMPT = `
 `;
 
 app.post('/diagnose', async (req, res) => {
-  const { text, images = [] } = req.body;
+  const { text, images = [], logFiles = [] } = req.body;
   
   // Set headers for Server-Sent Events (SSE)
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -53,7 +67,7 @@ app.post('/diagnose', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  console.log('[Agent Server] Received POST /diagnose request.', { textLength: text?.length, imageCount: images.length });
+  console.log('[Agent Server] Received POST /diagnose request.', { textLength: text?.length, imageCount: images.length, logFileCount: logFiles.length });
 
   // Optional mechanism to kill the stream early
   const abortController = new AbortController();
@@ -64,7 +78,10 @@ app.post('/diagnose', async (req, res) => {
   });
 
   try {
-    const prompt = images.length > 0 ? buildPrompt(text, images) : (text || "请诊断此问题");
+    const hasContent = images.length > 0 || logFiles.length > 0;
+    const prompt = hasContent
+      ? buildPrompt(text, images, logFiles)
+      : (text || "请诊断此问题");
 
     const q = query({
       prompt: prompt,
