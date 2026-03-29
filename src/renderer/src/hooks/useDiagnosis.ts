@@ -36,6 +36,7 @@ export const useDiagnosis = () => {
     abortControllerRef.current = controller;
 
     try {
+      console.log('[useDiagnosis] Sending request to backend...');
       const response = await fetch('http://localhost:3213/diagnose', {
         method: 'POST',
         headers: {
@@ -45,46 +46,55 @@ export const useDiagnosis = () => {
         signal: controller.signal
       })
 
+      console.log('[useDiagnosis] Response received:', response.status, response.statusText);
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+
       if (!response.body) throw new Error('ReadableStream not supported by this browser.')
       
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       
       let done = false
+      let buffer = ''
 
       while (!done) {
         const { value, done: readerDone } = await reader.read()
         done = readerDone
         if (value) {
-          const chunk = decoder.decode(value, { stream: true })
+          buffer += decoder.decode(value, { stream: !done })
+          const lines = buffer.split('\n')
+          // Save the last potentially incomplete line back to buffer
+          buffer = lines.pop() || ''
           
-          const events = chunk.split('\n\n')
-          
-          for (const ev of events) {
-            if (ev.startsWith('data: ')) {
-               const dataStr = ev.replace('data: ', '').trim()
-               if (dataStr === '[DONE]') {
-                 done = true
-                 break;
-               }
-               
-               if (dataStr) {
-                 try {
-                   const parsed = JSON.parse(dataStr)
-                   if (parsed.error) {
-                     setError(parsed.error)
-                     setState('ERROR')
-                     done = true
-                     break;
-                   } else if (parsed.text) {
-                     setMessages(prev => prev.map(m => 
-                       m.id === aid ? { ...m, content: m.content + parsed.text } : m
-                     ))
-                   }
-                 } catch (e) {
-                   console.error('Failed to parse SSE data', dataStr, e)
-                 }
-               }
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue
+
+            const dataStr = trimmedLine.replace('data: ', '').trim()
+            console.log('[useDiagnosis] Received SSE data:', dataStr);
+
+            if (dataStr === '[DONE]') {
+               done = true
+               break;
+            }
+            
+            try {
+              const parsed = JSON.parse(dataStr)
+              if (parsed.error) {
+                setError(parsed.error)
+                setState('ERROR')
+                done = true
+                break;
+              } else if (parsed.text) {
+                setMessages(prev => prev.map(m => 
+                  m.id === aid ? { ...m, content: m.content + parsed.text } : m
+                ))
+              }
+            } catch (e) {
+              console.error('[useDiagnosis] Failed to parse JSON:', dataStr, e)
             }
           }
         }
