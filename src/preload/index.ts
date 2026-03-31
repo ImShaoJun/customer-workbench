@@ -1,27 +1,25 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+function onIpc<T>(channel: string, callback: (payload: T) => void) {
+  const handler = (_event: Electron.IpcRendererEvent, payload: T) => callback(payload)
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
 // Custom APIs for renderer
 const api = {
   // Diagnosis
   startDiagnosis: (data: { text: string; images: string[] }) =>
     ipcRenderer.invoke('diagnose:start', data),
   abortDiagnosis: () => ipcRenderer.invoke('diagnose:abort'),
-  onStream: (callback: (message: unknown) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, message: unknown) => callback(message)
-    ipcRenderer.on('diagnose:stream', handler)
-    return () => ipcRenderer.removeListener('diagnose:stream', handler)
-  },
+  onStream: (callback: (message: unknown) => void) => onIpc('diagnose:stream', callback),
   onComplete: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('diagnose:complete', handler)
     return () => ipcRenderer.removeListener('diagnose:complete', handler)
   },
-  onError: (callback: (error: string) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, error: string) => callback(error)
-    ipcRenderer.on('diagnose:error', handler)
-    return () => ipcRenderer.removeListener('diagnose:error', handler)
-  },
+  onError: (callback: (error: string) => void) => onIpc('diagnose:error', callback),
 
   // Window controls
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

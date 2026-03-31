@@ -6,17 +6,32 @@ import { InputArea } from './components/InputArea'
 
 function App() {
   const [inputText, setInputText] = useState('')
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
   const { state, messages, error, sendDiagnosis, abortDiagnosis } = useDiagnosis()
   const { images, handlePaste, handleDrop, handleFileSelect, removeImage, clearImages } = useImageUpload()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // Auto scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const isNearBottom = (el: HTMLDivElement) => {
+    const threshold = 120
+    return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
   }
+
+  const scrollToBottom = () => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    setAutoScrollEnabled(isNearBottom(el))
+  }
+
   useEffect(() => {
+    if (!autoScrollEnabled) return
     scrollToBottom()
-  }, [messages])
+  }, [messages, autoScrollEnabled])
 
   const handleSend = () => {
     sendDiagnosis(inputText, images);
@@ -32,7 +47,7 @@ function App() {
       onDragOver={(e) => e.preventDefault()}
     >
       {/* 自定义标题栏 */}
-      <header className="drag-region flex items-center justify-between h-10 px-4 bg-dark-900/80 backdrop-blur-sm border-b border-white/5 shrink-0 z-10 w-full relative">
+      <header className="drag-region flex items-center justify-between h-10 px-4 bg-dark-900/90 border-b border-white/5 shrink-0 z-10 w-full relative">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-gradient-to-br from-primary-400 to-accent-500 glow-pulse" />
           <span className="text-sm font-medium text-dark-300">AI 诊断工作台</span>
@@ -68,8 +83,12 @@ function App() {
       {/* 主内容区 */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* 消息区域 */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 pb-2">
-          <div className="max-w-3xl mx-auto flex flex-col h-full justify-start">
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="messages-scroll flex-1 overflow-y-auto px-4 md:px-8 py-6 pb-2"
+        >
+          <div className="w-full max-w-6xl mx-auto flex flex-col h-full justify-start">
             
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center">
@@ -87,19 +106,19 @@ function App() {
               </div>
             ) : (
               <div className="flex flex-col animate-slide-up">
-                {messages.map((msg, i) => (
+                {messages.map((msg) => (
                   <MessageBubble key={msg.id} message={msg} />
                 ))}
                 
                 {/* 错误提示框 */}
                 {error && (
-                  <div className="glass-card mb-6 p-4 max-w-[85%] border-l-4 border-l-red-500 bg-red-500/10">
+                  <div className="glass-card mb-6 p-4 max-w-[92%] border-l-4 border-l-red-500 bg-red-500/10">
                     <p className="text-red-400 font-medium text-sm">⚠️ 诊断异常断开</p>
                     <p className="text-dark-300 text-xs mt-1">{error}</p>
                   </div>
                 )}
-                
-                <div ref={messagesEndRef} className="h-4" />
+
+                <div className="h-4" />
               </div>
             )}
 

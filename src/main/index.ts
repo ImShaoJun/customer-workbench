@@ -5,6 +5,25 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 // Disable GPU acceleration to prevent black screen in WSL/Linux environments
 app.disableHardwareAcceleration();
 
+function shouldAutoOpenDevTools(): boolean {
+  const flag = (process.env.ELECTRON_OPEN_DEVTOOLS || '').toLowerCase()
+  return flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on'
+}
+
+function toggleWindowMaximize(mainWindow: BrowserWindow): void {
+  if (mainWindow.isMaximized()) {
+    mainWindow.unmaximize()
+    return
+  }
+  mainWindow.maximize()
+}
+
+function registerWindowIpc(mainWindow: BrowserWindow): void {
+  ipcMain.handle('window:minimize', () => mainWindow.minimize())
+  ipcMain.handle('window:maximize', () => toggleWindowMaximize(mainWindow))
+  ipcMain.handle('window:close', () => mainWindow.close())
+}
+
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 1000,
@@ -26,7 +45,8 @@ function createWindow(): BrowserWindow {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    if (is.dev) {
+    // DevTools is opt-in in dev mode to avoid startup distraction and extra rendering cost.
+    if (is.dev && shouldAutoOpenDevTools()) {
       mainWindow.webContents.openDevTools()
     }
   })
@@ -57,16 +77,8 @@ app.whenReady().then(() => {
 
   const mainWindow = createWindow()
 
-  // Window control handlers
-  ipcMain.handle('window:minimize', () => mainWindow.minimize())
-  ipcMain.handle('window:maximize', () => {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    } else {
-      mainWindow.maximize()
-    }
-  })
-  ipcMain.handle('window:close', () => mainWindow.close())
+  // Keep window controls centralized to avoid duplicate IPC wiring.
+  registerWindowIpc(mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

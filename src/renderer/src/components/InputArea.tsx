@@ -47,8 +47,8 @@ export function InputArea({
   const canSend = (inputText.trim().length > 0 || images.length > 0) && !isSending;
 
   return (
-    <div className="shrink-0 border-t border-white/5 bg-dark-900/50 backdrop-blur-sm px-6 py-4">
-      <div className="max-w-3xl mx-auto">
+    <div className="shrink-0 border-t border-white/5 bg-dark-900/70 px-4 md:px-8 py-4">
+      <div className="w-full max-w-6xl mx-auto">
         <div className="glass-card p-3 focus-within:border-primary-500/50 outline outline-1 outline-transparent transition-colors shadow-lg">
           
           {/* 已上传图片预览区 */}

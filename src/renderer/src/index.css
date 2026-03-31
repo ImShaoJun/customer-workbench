@@ -14,6 +14,7 @@
     height: 100%;
     overflow: hidden;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overscroll-behavior: none;
   }
 
   /* 自定义滚动条 */
@@ -45,7 +46,13 @@
 @layer components {
   /* 毛玻璃卡片 */
   .glass-card {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl;
+    @apply bg-white/5 border border-white/10 rounded-xl;
+  }
+
+  /* 独立滚动层，减少滚动过程中的重排影响 */
+  .messages-scroll {
+    contain: layout paint;
+    will-change: scroll-position;
   }
 
   /* 标题栏拖拽区域 */

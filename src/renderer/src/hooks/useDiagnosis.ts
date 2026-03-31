@@ -1,6 +1,26 @@
 import { useState, useCallback, useRef } from 'react'
 import { DiagnosisState, ChatMessage } from '../types'
 
+const DEFAULT_EMPTY_RESULT = '本次诊断未返回可显示内容，请重试一次或补充更具体的问题描述。'
+
+function appendAssistantChunk(messages: ChatMessage[], assistantId: string, text: string): ChatMessage[] {
+  return messages.map((m) =>
+    m.id === assistantId ? { ...m, content: m.content + text } : m
+  )
+}
+
+function finalizeAssistant(messages: ChatMessage[], assistantId: string): ChatMessage[] {
+  return messages.map((m) => {
+    if (m.id !== assistantId) return m
+    const hasContent = Boolean(m.content && m.content.trim())
+    return {
+      ...m,
+      content: hasContent ? m.content : DEFAULT_EMPTY_RESULT,
+      isStreaming: false
+    }
+  })
+}
+
 export const useDiagnosis = () => {
   const [state, setState] = useState<DiagnosisState>('IDLE')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -64,6 +84,7 @@ export const useDiagnosis = () => {
         const { value, done: readerDone } = await reader.read()
         done = readerDone
         if (value) {
+          // SSE frames may be split across chunks, so we keep an incremental buffer.
           buffer += decoder.decode(value, { stream: !done })
           const lines = buffer.split('\n')
           // Save the last potentially incomplete line back to buffer
@@ -89,9 +110,8 @@ export const useDiagnosis = () => {
                 done = true
                 break;
               } else if (parsed.text) {
-                setMessages(prev => prev.map(m => 
-                  m.id === aid ? { ...m, content: m.content + parsed.text } : m
-                ))
+                // Keep a single assistant bubble and append every streamed segment to it.
+                setMessages(prev => appendAssistantChunk(prev, aid, parsed.text))
               }
             } catch (e) {
               console.error('[useDiagnosis] Failed to parse JSON:', dataStr, e)
@@ -101,7 +121,8 @@ export const useDiagnosis = () => {
       }
       
       setState(prev => prev === 'ERROR' ? 'ERROR' : 'SUCCESS')
-      setMessages(prev => prev.map(m => m.id === aid ? { ...m, isStreaming: false } : m))
+      // UI-side fallback keeps user-facing behavior stable if backend ends without text.
+      setMessages(prev => finalizeAssistant(prev, aid))
 
     } catch (err: any) {
       if (err.name === 'AbortError') {

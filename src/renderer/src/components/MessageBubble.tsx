@@ -15,7 +15,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <div className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-4`}>
+      <div className={`flex max-w-[94%] xl:max-w-[82%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-4`}>
         
         {/* 头像 */}
         <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center shadow-lg ${

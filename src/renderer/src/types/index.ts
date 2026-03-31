@@ -4,7 +4,8 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  images?: string[]; // Base64 encoded images
+  // Data URL images (e.g. data:image/png;base64,...) sent with user message.
+  images?: string[];
   timestamp: number;
   isStreaming?: boolean;
 }
@@ -15,5 +16,5 @@ export interface StreamEventPayload {
   subtype?: string;
   result?: string;
   message?: string;
-  details?: any;
+  details?: unknown;
 }

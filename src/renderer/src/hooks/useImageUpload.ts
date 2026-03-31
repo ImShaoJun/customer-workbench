@@ -4,14 +4,10 @@ export function useImageUpload() {
   const [images, setImages] = useState<string[]>([]); // Base64 strings
 
   const readImageFiles = async (files: FileList | File[]) => {
-    const newImages: string[] = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.type.startsWith('image/')) {
-        const base64 = await convertToBase64(file);
-        newImages.push(base64 as string);
-      }
-    }
+    // Keep only image MIME types so pasted non-image files are ignored safely.
+    const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
+    const newImages = await Promise.all(imageFiles.map(convertToBase64));
+
     if (newImages.length > 0) {
       setImages(prev => [...prev, ...newImages]);
     }
@@ -56,11 +52,11 @@ export function useImageUpload() {
   };
 }
 
-function convertToBase64(file: File): Promise<string | ArrayBuffer | null> {
+function convertToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
     reader.onerror = error => reject(error);
   });
 }
